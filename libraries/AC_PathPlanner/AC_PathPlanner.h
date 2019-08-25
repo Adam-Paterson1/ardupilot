@@ -12,7 +12,7 @@
 #define WAYPOINT_TIME_INTERVAL  10000*1000  // ms*1000
 #define ad                      0.1         // m/s^2, desired accleration
 #define DIST_THRES              0.1         // m
-#define PITCH_OSCILLATION       2           // degree - for experiment only
+#define PITCH_OSCILLATION       5           // degree - for experiment only
 #define PITCH_PERIOD            1           // second
 
 class AC_PathPlanner

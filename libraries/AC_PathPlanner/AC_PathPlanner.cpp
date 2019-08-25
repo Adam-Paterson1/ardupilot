@@ -252,7 +252,7 @@ float AC_PathPlanner::pitch_oscillator(float pilot_pitch)
 
     float target_pitch = 0;
 
-    float manual_pitch_trim = rc().channel(CH_7)->get_radio_in() - 1500; // range: 1000-2000
+    float manual_pitch_trim = pilot_pitch/2;
 
     // in centidegree
     if (_flags.start_flight)

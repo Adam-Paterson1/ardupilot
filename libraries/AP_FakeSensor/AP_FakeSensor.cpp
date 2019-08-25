@@ -24,12 +24,9 @@ void AP_FakeSensor::get_motors(AP_MotorsMulticopter* motors)
 void AP_FakeSensor::init()
 {
     _flag_init = false;
-
     _uart = hal.uartE;  // using GPS2 port
     if (_uart == nullptr)    {return;}
-
     _uart->begin(ODROID_BAUDRATE);
-
     gcs().send_text(MAV_SEVERITY_INFO, "Initialising fake sensor communication with Odroid...\n");
 }
 
@@ -51,11 +48,13 @@ void AP_FakeSensor::update()
     data.ts = AP_HAL::millis();
 
     // send Pixhawk 2 data back to Oddroid
-    vector<unsigned char> msg;
-    msg = _msg_encoder();
-    _msg_sender(msg);
-
-    //hal.uartA->printf("dist_err %f, rng_alt %f\n", data.dist_err, data.target_rangefinder_alt);
+    // static uint8_t counter = 0;
+    // counter++;
+    // if (counter > 10) {
+    //     counter = 0;
+    //     _uart->printf("$%lu %f %f %f\n", 
+    //             data.ts, data.roll, data.pitch, data.yaw);
+    // }
 }
 
 void AP_FakeSensor::read_controller(pos_error_t perr, float u1)
@@ -76,66 +75,63 @@ void AP_FakeSensor::_get_pos()
 {
     if (_uart == nullptr)    {return;}
 
-
     int16_t nbytes = _uart->available();
-
     if (nbytes) _prev_pos = data.pos;   // storing the previous data for comparison
 
     _buflen = 0;
-
-    // position update
-    if (nbytes)
-    {
-        if (nbytes == 17)
-        {
-            char c = _uart->read();
-
-            if (c == '$')
-            {
-                for (int i=0;i<16;i++)
+    // If we last saw a v that means we care about this number and those following until a \n
+    while (_uart->available() > 0) {
+        char c = _uart->read();
+        if (c == 'v') {
+            // Reset
+            i = 0;
+            partial_buffer = true;
+        } else if (partial_buffer) {
+            // Not V and not in progress its garbage
+            // Not V and we are in progress, read it
+            
+            if (c != '#') {
+                _linebuf[i] = c;
+                i++;
+            } else {
+                //End of transmission
+                // _uart->printf("Running");
+                _linebuf[i] = '\0';
+                int j = 0;
+                char delim[] = ",";
+                int bufi[2];
+                char *ptr = strtok(_linebuf, delim);
+                while(ptr != NULL)
                 {
-                    _linebuf[_buflen++] = _uart->read();
+                    bufi[j] = atoi(ptr);
+                    ptr = strtok(NULL, delim);
+                    j++;
                 }
-
-                data.pos.y = (float) _byte2int(_linebuf, 1) * 0.001f;
-                data.pos.z = (float) _byte2int(_linebuf, 2) * 0.001f;
-                data.pos.nset = _byte2int(_linebuf, 3);
-
-                //hal.uartA->printf("y %f, z %f, n %d\n", data.pos.y, data.pos.z, data.pos.nset);
+                _uart->printf("$");
+                for (j = 0; j < 2; j++)
+                {
+                    _uart->printf("%i", bufi[j]);
+                }
+                // Update position
+                data.pos.y = bufi[0];
+                data.pos.z = bufi[1];
+                data.pos.nset = _prev_pos.nset + 1;
+                // Reset line buffer
+                for (i = 0; i <DATA_BUF_SIZE; i++) {
+                    _linebuf[i] = ' ';
+                }
+                // Reset flags
+                i = 0;
+                partial_buffer = false;
             }
         }
-        else
-        {
-            while (nbytes-->0)
-            {
-                _uart->read();//_linebuf[_brokenlen++] = _uart->read();
-
-            }
-
-            if (_brokenlen == 17)
-            {
-                //int y = _byte2int(_linebuf, 1);
-                //int z = _byte2int(_linebuf, 2);
-                //int nset = _byte2int(_linebuf, 3);
-
-                //hal.uartA->printf("broken y %d, z %d, n %d\n", y, z, nset);
-                _brokenlen = 0;
-            }
-        }
-
-        _flag_init = true;
-
-    }
+    }    
+    // position update
 }
-
 
 vector<unsigned char> AP_FakeSensor::_msg_encoder()
 {
-    //  message starts with '$'
-    //  roll, pitch, yaw are x1000 and sent as int
-
     vector<unsigned char> result;
-
     result.push_back('$');
     result = _int2byte(result, data.ts);
     result = _float2byte(result, data.roll);

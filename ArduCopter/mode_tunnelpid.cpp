@@ -63,8 +63,8 @@ void Copter::ModeTunnelPID::run()
     pp.get_current_pos(pkf->get_pos());
 
     //position_t target_pos = pp.run_circular_trajectory();
-    position_t target_pos = pp.run_diagonal_trajectory();
-    //position_t target_pos = pp.run_setpoint();
+    //position_t target_pos = pp.run_diagonal_trajectory();
+    position_t target_pos = pp.run_setpoint();
 
     // update position and position target
     backstepping->get_target_pos(target_pos.y, target_pos.z);

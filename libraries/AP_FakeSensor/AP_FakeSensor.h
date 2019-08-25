@@ -12,9 +12,9 @@
 #include <vector>
 #include <ctype.h>
 
-#define ODROID_BAUDRATE 921600
+#define ODROID_BAUDRATE 57600
 #define N_MSG_VARIABLE  5
-#define DATA_BUF_SIZE 16 // 4 int variables
+#define DATA_BUF_SIZE 20 // 4 int variables
 #define FAR_THRESHOLD 2000 // mm
 
 using namespace std;
@@ -136,10 +136,12 @@ public:
 private:
     AP_HAL::UARTDriver *_uart = nullptr;
     char _linebuf[DATA_BUF_SIZE];
+    int i = 0;
     uint8_t _buflen = 0;
     uint8_t _brokenlen = 0;
     position_t _prev_pos;
     bool _flag_init = false;
+    bool partial_buffer = false;
 
     AP_MotorsMulticopter*   _motors;
     AP_AHRS_View*           _ahrs;

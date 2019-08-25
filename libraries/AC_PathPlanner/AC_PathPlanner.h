@@ -9,11 +9,9 @@
 #include <GCS_MAVLink/GCS.h>
 #include <DataFlash/DataFlash.h>
 
-#define WAYPOINT_TIME_INTERVAL  10000*1000  // ms*1000
-#define ad                      0.1         // m/s^2, desired accleration
-#define DIST_THRES              0.1         // m
-#define PITCH_OSCILLATION       2           // degree - for experiment only
-#define PITCH_PERIOD            1           // second
+#define WAYPOINT_TIME_INTERVAL  10000*1000   // ms*1000
+#define ad                      0.1        // m/s^2, desired accleration
+#define DIST_THRES              0.1        // m
 
 class AC_PathPlanner
 {
@@ -26,9 +24,6 @@ public:
     position_t get_target_pos();
     void get_current_pos(position_t pos);
     void get_default_target(float yd, float zd);
-
-    // for experiment only
-    float pitch_oscillator(float pilot_pitch);
 
 private:
     struct flags_t

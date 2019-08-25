@@ -23,8 +23,6 @@ position_t AC_PathPlanner::run_setpoint()
 {
     _check_flight_init();
 
-    _flags.start_flight = false; // only run a single setpoint
-
     if (_flags.start_flight && !_flags.atGoal)
     {
         // check if reached goal
@@ -244,27 +242,6 @@ position_t AC_PathPlanner::run_diagonal_trajectory()
     _t0 = AP_HAL::micros64();
     //hal.uartA->printf("yd %f, zd %f, vyd %f, vzd %f, timer %f, idx %d\n", _pos_d.y, _pos_d.z,_pos_d.vy, _pos_d.vz,_ftimer, _wp_idx);
     return _pos_d;
-}
-
-float AC_PathPlanner::pitch_oscillator(float pilot_pitch)
-{
-    _check_flight_init();
-
-    float target_pitch = 0;
-
-    float manual_pitch_trim = rc().channel(CH_7)->get_radio_in() - 1500; // range: 1000-2000
-
-    // in centidegree
-    if (_flags.start_flight)
-    {
-        target_pitch = PITCH_OSCILLATION * sin(2*M_PI/PITCH_PERIOD * _ftimer) * 100 + manual_pitch_trim;
-    }
-    else
-    {
-        target_pitch = pilot_pitch;
-    }
-    
-    return target_pitch;
 }
 
 

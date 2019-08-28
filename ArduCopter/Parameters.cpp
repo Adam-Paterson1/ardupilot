@@ -79,7 +79,7 @@ const AP_Param::Info Copter::var_info[] = {
     GSCALAR(BS_imax_z, "BS_imax_z",   10),
 
     // @Param:Backstepping_pos_z_desired
-    GSCALAR(BS_zd, "BS_zd",   0.5),
+    GSCALAR(BS_zd, "BS_zd",   0),
 
     // @Param:Backstepping_pos_z_desired
     GSCALAR(BS_yd, "BS_yd",   0),

@@ -256,9 +256,9 @@ void AC_PathPlanner::get_default_target(float yd, float zd)
 
 void AC_PathPlanner::_check_flight_init()
 {
-    int ch7 = rc().channel(CH_7)->get_radio_in();
+    int ch5 = rc().channel(CH_5)->get_radio_in();
 
-    if (ch7 > 1500)
+    if (ch5 > 1600)
     {
         _flags.start_flight = true;
     }

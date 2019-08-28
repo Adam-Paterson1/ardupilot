@@ -39,16 +39,12 @@ const AP_Param::Info Copter::var_info[] = {
     GSCALAR(TUNLpid_y_p, "Tunnel_y_p",   0),
 
     // @Param:Tunnel_pos_y_i
-    // @DisplayName: p gain for tunnel mode lateral controller
+    // @DisplayName: i gain for tunnel mode lateral controller
     GSCALAR(TUNLpid_y_i, "Tunnel_y_i",   0),
 
     // @Param:Tunnel_pos_y_d
-    // @DisplayName: p gain for tunnel mode lateral controller
+    // @DisplayName: d gain for tunnel mode lateral controller
     GSCALAR(TUNLpid_y_d, "Tunnel_y_d",   0),
-
-    // @Param:Tunnel_pos_y_imax
-    // @DisplayName: p gain for tunnel mode lateral controller
-    GSCALAR(TUNLpid_y_imax, "Tunnel_y_Imax",   TUNNEL_POS_Y_IMAX_DEFAULT),
 
     // @Param:Backstepping_y_k1
     // @DisplayName: gain k1_z for backstepping controller

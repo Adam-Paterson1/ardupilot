@@ -12,7 +12,7 @@
 #include <vector>
 #include <ctype.h>
 
-#define ODROID_BAUDRATE 57600
+#define ODROID_BAUDRATE 115200
 #define N_MSG_VARIABLE  5
 #define DATA_BUF_SIZE 20 // 4 int variables
 #define FAR_THRESHOLD 2000 // mm

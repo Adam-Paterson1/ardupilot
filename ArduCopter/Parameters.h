@@ -366,8 +366,6 @@ public:
         k_param_TUNLpid_y_i,
         k_param_TUNLpid_y_d,
 
-        k_param_TUNLpid_y_imax,
-
         k_param_BS_z_k1,
         k_param_BS_z_k2,
         k_param_BS_z_k3,
@@ -393,8 +391,6 @@ public:
     AP_Float TUNLpid_y_p;
     AP_Float TUNLpid_y_i;
     AP_Float TUNLpid_y_d;
-
-    AP_Float TUNLpid_y_imax;
 
     // Tunnel Backstepping controller parameter
     //

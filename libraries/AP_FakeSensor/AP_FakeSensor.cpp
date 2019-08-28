@@ -47,14 +47,14 @@ void AP_FakeSensor::update()
     // assign timestamp to data
     data.ts = AP_HAL::millis();
 
-    // send Pixhawk 2 data back to Oddroid
-    // static uint8_t counter = 0;
-    // counter++;
-    // if (counter > 10) {
-    //     counter = 0;
-    //     _uart->printf("$%lu %f %f %f\n", 
-    //             data.ts, data.roll, data.pitch, data.yaw);
-    // }
+    // send Pixhawk 2 data back to Odroid
+    static uint8_t counter = 0;
+    counter++;
+    if (counter > 10) {
+        counter = 0;
+        _uart->printf("$%lu %f %f %f\n", 
+                data.ts, data.roll, data.pitch, data.yaw);
+    }
 }
 
 void AP_FakeSensor::read_controller(pos_error_t perr, float u1)

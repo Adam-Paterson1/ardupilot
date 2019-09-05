@@ -80,7 +80,7 @@ void Copter::ModeTunnelPID::run()
     pos_control->update_z_controller();
 
     target_roll = backstepping->update_PID_lateral_controller();
-
+    hal.uartE->printf("$ ITS WORKING %f %f %f", target_roll, target_pitch, target_yaw_rate);
     // call attitude controller
     attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(target_roll, target_pitch, target_yaw_rate);
 

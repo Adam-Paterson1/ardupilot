@@ -23,12 +23,12 @@
 #define POS_ERROR_THRESHOLD                 1.5f    // in m, max allowed change in position
 #define THROTTLE_TRANSITION_TIME            1.5f    // second
 #define MANUAL_OVERRIDE_TIME                1.5f    // second
-#define ROLL_DTERM_MAX                      sin(30*M_PI/180.0f)*0.36    // about 20 deg of d term
 
 // defines for PID controller
-#define PID_DTERM_MAX                       2000    // 20 centidegree
-#define PID_ITERM_MAX                       1000    // 10 centidegree
-#define PID_MAX_CLIMB_RATE                  150     // cm/s
+#define PID_DYTERM_MAX                       2000    // 20 centidegree
+#define PID_IYTERM_MAX                       1000    // 10 centidegree
+#define PID_DZTERM_MAX                       0.2    // 20% throttle
+#define PID_IZTERM_MAX                       0.1    // 10% throttle
 
 class AC_Backstepping
 {
@@ -37,12 +37,15 @@ public:
     struct backstepping_flags
     {
         bool switched_mode;
-        bool mode_transition_completed;
-        bool manual_override;
+        bool snapshot_angle;
+        bool snapshot_thrust;
+        bool angle_transition_completed;
+        bool thrust_transition_completed;
+        bool roll_override;
     }flags;
 
     pos_error_t perr;
-
+    float switch_time = (float) 400.0f*THROTTLE_TRANSITION_TIME;
     // functions
     AC_Backstepping(const AP_AHRS_View& ahrs, const AP_InertialNav& inav,
                     const AP_Motors& motors, AC_AttitudeControl& attitude_control,
@@ -51,22 +54,16 @@ public:
     void pos_update(position_t pos);
     void get_imax(float imax_y, float imax_z);
     void get_gains(float yk1, float yk2, float yk3, float zk1, float zk2, float zk3);
-    void get_target_pos(float yd, float zd);
-    void get_target_vel(float vyd, float vzd);
-    void get_target_accel(float ayd, float azd);
-    void get_pilot_lean_angle_input(float target_roll, float roll_max);
-    float get_u1();
-
-    void update_alt_controller();
-    float update_lateral_controller();
+    void set_target_pos(position_t pos);
     void reset_integral();
     void reset_mode_switch();
     void write_log();
 
     // PID lateral controller
-    float update_PID_lateral_controller();
+    float update_PID_lateral_controller(float angle_max);
+    float update_PID_vertical_controller();
     float get_PID_alt_climb_rate();    // cm/s
-    void get_PID_gains(float alt_p, float kp, float ki, float kd);
+    void set_PID_gains(gains_t gains);
     void reset_PID_integral();
 
 private:
@@ -88,34 +85,25 @@ private:
     }_gains;
 
     position_t _pos;
-
-    int _manual_counter;
-
     float _dt;
+    float _prev_ey;
+    float _prev_ez;
     float _pos_target_z;
     float _pos_target_y;
-    float _vel_target_y;
-    float _vel_target_z;
-    float _accel_target_y;
-    float _accel_target_z;
     int   _prev_nset;
 
-    float _imax_z;   // max integral term for pos z
-    float _imax_y;   // max integral term for pos y
-
     float _last_mode_thr_out;
-    float _mode_switch_counter;
+    float _last_mode_roll_out;
+    float _angle_transition_counter;
+    float _thrust_transition_counter;
     float _thr_out;    // thrust output for motor, range from 0-1
-    float _u1;               // thrust: raw controller output from altitude controller
     float _target_roll;     // desired roll to the attitude controller
     float _pilot_roll;      // pilot roll input
-    float _BS_roll;         // desired roll output from backstepping
     float _roll_max;        // max roll angle
 
     float _angle_transition(float target_roll);
     float _throttle_transition(float BS_thr_out);
-    float _limit_derivative(float d_term, float threshold);
-    float _limit_integral(float gain, float current_err, char yz);
+    float _limit_value(float value, float threshold);
     float _limit_thrust(float thr);
     float _limit_sin_phi(float sp);
     float _rad2cdeg(float in);
@@ -123,15 +111,14 @@ private:
     // PID lateral controller
     struct pid_gains_t
     {
-        float alt_p;
-        float kp;
-        float ki;
-        float kd;
+        float py;
+        float iy;
+        float dy;
+        float pz;
+        float iz;
+        float dz;
     }_pid;
 
     float _pid_iey;
-    float _pid_roll;
-
-    float _limit_PID_integral(float error, float in);
-
+    float _pid_iez;
 };

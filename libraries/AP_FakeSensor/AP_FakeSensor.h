@@ -14,7 +14,7 @@
 
 #define ODROID_BAUDRATE 115200
 #define N_MSG_VARIABLE  5
-#define DATA_BUF_SIZE 20 // 4 int variables
+#define DATA_BUF_SIZE 50 // 4 int variables
 #define FAR_THRESHOLD 2000 // mm
 
 using namespace std;
@@ -64,6 +64,15 @@ struct pos_error_t
     float dterm_z;
     float iterm_z;
 };
+struct gains_t
+{
+    float py;
+    float iy;
+    float dy;
+    float pz;
+    float iz;
+    float dz;
+};
 
 
 struct position_t
@@ -91,11 +100,16 @@ struct FakeSensor_data_t
 {
     position_t pos;
     position_t KF_pos;
-
+    position_t target_pos;
+    gains_t gains;
     // Pixhawk 2 info
     float roll;
     float pitch;
     float yaw;
+    float target_thrust;
+    float target_roll;
+    float target_pitch;
+    float target_yaw_rate;
 
     rc_channel_t ch;    // rc channels
 
@@ -110,7 +124,6 @@ struct FakeSensor_data_t
     float target_rangefinder_alt;
     pos_error_t perr;
     float mthrust_out[3];   // motor thrust output
-    float u1;               // Backstepping thrust output
 };
 
 
@@ -128,10 +141,8 @@ public:
     void get_motors(AP_MotorsMulticopter* motors);
     bool data_is_ok();
     void get_KF_pos(position_t p);  // get kalman filter output;
+    void get_target_things(float thrust, float roll, float pitch, float yaw);
     void write_log();
-
-    // get controller info
-    void read_controller(pos_error_t perr, float u1);
 
 private:
     AP_HAL::UARTDriver *_uart = nullptr;

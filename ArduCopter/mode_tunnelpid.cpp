@@ -5,17 +5,29 @@ extern const AP_HAL::HAL &hal;
  * Init and run calls for althold, flight mode 26
  */
 
+bool roll_override = false;
+bool prev_roll_override = false;
+bool thrust_override = false;
+bool prev_thrust_override = false;
+float _dt = 0.0025f;
+int FULL_TIME = 600;
+int roll_override_timer = 0;
+int thrust_override_timer = 0;
+float prev_pilot_thrust = 0;
+int roll_transition_counter = 0;
+int thrust_transition_counter = 0;
+
+float transitionCoefficient (float from, float to, float counter) {
+  float dist = to - from;
+  float step = dist / 200; // 200 for 0.5s transition
+  return from + step * (200 - counter);
+}
 // althold_init - initialise althold controller
 bool Copter::ModeTunnelPID::init(bool ignore_checks)
 {
-    // initialise position and desired velocity
-    if (!pos_control->is_active_z()) {
-        pos_control->set_alt_target_to_current_alt();
-        pos_control->set_desired_velocity_z(inertial_nav.get_velocity_z());
-    }
-
     backstepping->reset_PID_integral();
-
+    backstepping->reset_mode_switch();
+    prev_pilot_thrust = get_pilot_desired_throttle(channel_throttle->get_control_in());
     return true;
 }
 
@@ -23,65 +35,126 @@ bool Copter::ModeTunnelPID::init(bool ignore_checks)
 // should be called at 100hz or more
 void Copter::ModeTunnelPID::run()
 {
-    // ======================
-    // do not need to touch
-    // ======================
+    // SETUP ----------------------------------------------------------------
+    float target_roll, target_pitch, target_thrust, target_yaw_rate;
+    float pilot_roll, pilot_pitch, pilot_thrust, pilot_yaw_rate;
 
-    // initialize vertical speeds and acceleration
-    pos_control->set_speed_z(-get_pilot_speed_dn(), g.pilot_speed_up);
-    pos_control->set_accel_z(g.pilot_accel_z);
-
-    // apply SIMPLE mode transform to pilot inputs
-    update_simple_mode();
-
-    // get pilot desired lean angles
-    float target_roll, target_pitch;
-    get_pilot_desired_lean_angles(target_roll, target_pitch, copter.aparm.angle_max, copter.aparm.angle_max);
-
-    // get pilot's desired yaw rate
-    float target_yaw_rate = get_pilot_desired_yaw_rate(channel_yaw->get_control_in());
-
-    motors->set_desired_spool_state(AP_Motors::DESIRED_THROTTLE_UNLIMITED);
-    // ======================
-    // do not need to touch
-    // ======================
-
-
-    // reset integral if on the ground
+       // reset integral if on the ground
     if (!motors->armed() || !motors->get_interlock())
     {
         backstepping->reset_PID_integral();
+        zero_throttle_and_relax_ac();
+        return;
     }
 
-    backstepping->get_PID_gains(g.alt_hold_p, g.TUNLpid_y_p, g.TUNLpid_y_i, g.TUNLpid_y_d);
+    // clear landing flag
+    set_land_complete(false);
 
-    backstepping->get_pilot_lean_angle_input(target_roll, copter.aparm.angle_max);
+    motors->set_desired_spool_state(AP_Motors::DESIRED_THROTTLE_UNLIMITED);
 
-    // generate waypoint
-    pp.get_default_target(g.BS_yd, g.BS_zd);
+    // PILOT ----------------------------------------------------------------
+    // apply SIMPLE mode transform to pilot inputs
+    update_simple_mode();
 
-    pp.get_current_pos(pkf->get_pos());
+    // convert pilot input to lean angles
+    get_pilot_desired_lean_angles(pilot_roll, pilot_pitch, copter.aparm.angle_max, copter.aparm.angle_max);
 
-    //position_t target_pos = pp.run_circular_trajectory();
-    //position_t target_pos = pp.run_diagonal_trajectory();
-    position_t target_pos = pp.run_setpoint();
+    // get pilot's desired yaw rate
+    pilot_yaw_rate = get_pilot_desired_yaw_rate(channel_yaw->get_control_in());
 
-    // update position and position target
-    backstepping->get_target_pos(target_pos.y, target_pos.z);
-    backstepping->get_target_vel(target_pos.vy, target_pos.vz);
+    // get pilot's desired throttle
+    pilot_thrust = get_pilot_desired_throttle(channel_throttle->get_control_in());
 
+    // CONTROL ----------------------------------------------------------------
+    // Set PID Gains for dynamic tuning
+    backstepping->set_PID_gains(pos_sensor.data.gains);
+    // Set target
+    backstepping->set_target_pos(pos_sensor.data.target_pos);
+    // Update current position
     backstepping->pos_update(pkf->get_pos());
+    // Calculate outputs
+    target_roll = backstepping->update_PID_lateral_controller(copter.aparm.angle_max);
+    target_thrust = backstepping->update_PID_vertical_controller();
 
-    // adjust climb rate using rangefinder
-    float target_climb_rate = backstepping->get_PID_alt_climb_rate();
+    // OVERRIDES ----------------------------------------------------------------
+    // If pilot wiggling thrust or roll, let them take over for 1.5 seconds
+    if ((pilot_roll > 0.1 * copter.aparm.angle_max) || (pilot_roll < -0.1 * copter.aparm.angle_max)) {
+        roll_override = true;
+        roll_override_timer = FULL_TIME;
+    }
+    if (((pilot_thrust - prev_pilot_thrust) > 0.02) || ((pilot_thrust - prev_pilot_thrust) < -0.02)) {
+        thrust_override = true;
+        thrust_override_timer = FULL_TIME;
+    }
+    // If timed out reset to copter control
+    if (roll_override_timer <= 0) {
+        roll_override = false;
+    }
+    if (thrust_override_timer <= 0) {
+        thrust_override = false;
+    }
+    // If they just took over or lost control provide a smooth ramp between their signal and controller taking over
+    if (roll_override != prev_roll_override) {
+        roll_transition_counter = 200;
+    }
+    if (thrust_override != prev_thrust_override) {
+        thrust_transition_counter = 200;
+    }
+    //Apply mixing to get target roll + thrust
+    if (roll_override == true) {
+        target_roll = transitionCoefficient(1, 0.25, roll_transition_counter)*target_roll + transitionCoefficient(0, 0.75, roll_transition_counter)*pilot_roll;
+        roll_override_timer--;
+    } else {
+        target_roll = transitionCoefficient(0.25, 1, roll_transition_counter)*target_roll + transitionCoefficient(0.75, 0, roll_transition_counter)*pilot_roll;
+    }
 
-    // call position controller
-    pos_control->set_alt_target_from_climb_rate_ff(target_climb_rate, G_Dt, false);
-    pos_control->update_z_controller();
+    if (thrust_override == true) {
+        target_thrust = transitionCoefficient(1, 0.25, thrust_transition_counter)*target_thrust + transitionCoefficient(0, 0.75, thrust_transition_counter)*pilot_thrust;
+        thrust_override_timer--;
+    } else {
+        target_thrust = transitionCoefficient(0.25, 1, thrust_transition_counter)*target_thrust + transitionCoefficient(0.75, 0, thrust_transition_counter)*pilot_thrust;
+    }
 
-    target_roll = backstepping->update_PID_lateral_controller();
-    hal.uartE->printf("$ ITS WORKING %f %f %f", target_roll, target_pitch, target_yaw_rate);
+    // Decrement counters and update whether pilot took control this cycle
+    if (roll_transition_counter > 0) {
+        roll_transition_counter--;
+    }
+    if (thrust_transition_counter > 0) {
+        thrust_transition_counter--;
+    }
+    prev_roll_override = roll_override;
+    prev_thrust_override = thrust_override_timer;
+
+    //Pass through pilot control
+    prev_pilot_thrust = pilot_thrust;
+    target_yaw_rate = pilot_yaw_rate;
+    target_pitch = pilot_pitch;
+    target_roll = pilot_roll; //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // OUTPUT ----------------------------------------------------------------
     // call attitude controller
     attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(target_roll, target_pitch, target_yaw_rate);
 
+    // output pilot's throttle
+    attitude_control->set_throttle_out(target_thrust, true, g.throttle_filt);
+
+    // update position and position target
+    pos_sensor.get_target_things(target_thrust, target_roll, target_pitch, target_yaw_rate);
+    // static uint8_t counter = 0;
+    // counter++;
+    // if (counter > 40) {
+    //     counter = 0;
+    //     hal.uartE->printf("%lu %f %f %f %f %f %f %f %f\n", 
+    //             pos_sensor.data.ts, pos_sensor.data.mthrust_out[0], pos_sensor.data.roll, pos_sensor.data.pitch, pos_sensor.data.yaw, target_thrust, target_roll, target_pitch, target_yaw_rate);
+    // }
+    // static uint8_t counter = 0;
+    // counter++;
+    // if (counter > 20) {
+    //     counter = 0;
+        // if (roll_override == true) {
+        //     hal.uartE->printf("$ Pilot override");
+        // }
+    //     //hal.uartE->printf("$ Pilot %f %f %f %f", pilot_thrust, pilot_roll, pilot_pitch, pilot_yaw_rate);
+    //     hal.uartE->printf("$ ITS WORKING %f %f %f %f", target_thrust, target_roll, target_pitch, target_yaw_rate);
+    // }
+    
 }

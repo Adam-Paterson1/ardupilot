@@ -10,17 +10,20 @@ bool prev_roll_override = false;
 bool thrust_override = false;
 bool prev_thrust_override = false;
 float _dt = 0.0025f;
-int FULL_TIME = 600;
+int FULL_TIME = 600; //1.5 seconds
+int ROLL_TIME = 50; //125ms
 int roll_override_timer = 0;
 int thrust_override_timer = 0;
 float prev_pilot_thrust = 0;
 int roll_transition_counter = 0;
 int thrust_transition_counter = 0;
+int roll_transition_range = 20; //50ms
+int thrust_transition_range = 100; //250ms
 
-float transitionCoefficient (float from, float to, float counter) {
+float transitionCoefficient (float from, float to, int counter, int range) {
   float dist = to - from;
-  float step = dist / 200; // 200 for 0.5s transition
-  return from + step * (200 - counter);
+  float step = dist / range; // 200 for 0.5s transition
+  return from + step * (range - counter);
 }
 // althold_init - initialise althold controller
 bool Copter::ModeTunnelPID::init(bool ignore_checks)
@@ -75,14 +78,14 @@ void Copter::ModeTunnelPID::run()
     // Calculate outputs
     target_roll = backstepping->update_PID_lateral_controller(copter.aparm.angle_max);
     target_thrust = backstepping->update_PID_vertical_controller();
-
+    pos_sensor.get_error_terms(backstepping->perr);
     // OVERRIDES ----------------------------------------------------------------
     // If pilot wiggling thrust or roll, let them take over for 1.5 seconds
     if ((pilot_roll > 0.1 * copter.aparm.angle_max) || (pilot_roll < -0.1 * copter.aparm.angle_max)) {
         roll_override = true;
-        roll_override_timer = FULL_TIME;
+        roll_override_timer = ROLL_TIME;
     }
-    if (((pilot_thrust - prev_pilot_thrust) > 0.02) || ((pilot_thrust - prev_pilot_thrust) < -0.02)) {
+    if (((pilot_thrust - prev_pilot_thrust) > 0.009) || ((pilot_thrust - prev_pilot_thrust) < -0.009)) {
         thrust_override = true;
         thrust_override_timer = FULL_TIME;
     }
@@ -95,24 +98,24 @@ void Copter::ModeTunnelPID::run()
     }
     // If they just took over or lost control provide a smooth ramp between their signal and controller taking over
     if (roll_override != prev_roll_override) {
-        roll_transition_counter = 200;
+        roll_transition_counter = roll_transition_range;
     }
     if (thrust_override != prev_thrust_override) {
-        thrust_transition_counter = 200;
+        thrust_transition_counter = thrust_transition_range;
     }
     //Apply mixing to get target roll + thrust
     if (roll_override == true) {
-        target_roll = transitionCoefficient(1, 0.25, roll_transition_counter)*target_roll + transitionCoefficient(0, 0.75, roll_transition_counter)*pilot_roll;
+        target_roll = transitionCoefficient(1, 0.25, roll_transition_counter, roll_transition_range)*target_roll + transitionCoefficient(0, 0.75, roll_transition_counter, roll_transition_range)*pilot_roll;
         roll_override_timer--;
     } else {
-        target_roll = transitionCoefficient(0.25, 1, roll_transition_counter)*target_roll + transitionCoefficient(0.75, 0, roll_transition_counter)*pilot_roll;
+        target_roll = transitionCoefficient(0.25, 1, roll_transition_counter, roll_transition_range)*target_roll + transitionCoefficient(0.75, 0, roll_transition_counter, roll_transition_range)*pilot_roll;
     }
 
     if (thrust_override == true) {
-        target_thrust = transitionCoefficient(1, 0.25, thrust_transition_counter)*target_thrust + transitionCoefficient(0, 0.75, thrust_transition_counter)*pilot_thrust;
+        target_thrust = transitionCoefficient(1, 0.25, thrust_transition_counter, thrust_transition_range)*target_thrust + transitionCoefficient(0, 0.75, thrust_transition_counter, thrust_transition_range)*pilot_thrust;
         thrust_override_timer--;
     } else {
-        target_thrust = transitionCoefficient(0.25, 1, thrust_transition_counter)*target_thrust + transitionCoefficient(0.75, 0, thrust_transition_counter)*pilot_thrust;
+        target_thrust = transitionCoefficient(0.25, 1, thrust_transition_counter, thrust_transition_range)*target_thrust + transitionCoefficient(0.75, 0, thrust_transition_counter, thrust_transition_range)*pilot_thrust;
     }
 
     // Decrement counters and update whether pilot took control this cycle
@@ -129,7 +132,6 @@ void Copter::ModeTunnelPID::run()
     prev_pilot_thrust = pilot_thrust;
     target_yaw_rate = pilot_yaw_rate;
     target_pitch = pilot_pitch;
-    target_roll = pilot_roll; //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // OUTPUT ----------------------------------------------------------------
     // call attitude controller
     attitude_control->input_euler_angle_roll_pitch_euler_rate_yaw(target_roll, target_pitch, target_yaw_rate);

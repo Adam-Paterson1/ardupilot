@@ -57,10 +57,10 @@ struct rc_channel_t
 // control output
 struct pos_error_t
 {
-    float ey;
+    float pterm_y;
     float dterm_y;
     float iterm_y;
-    float ez;
+    float pterm_z;
     float dterm_z;
     float iterm_z;
 };
@@ -141,6 +141,7 @@ public:
     void get_motors(AP_MotorsMulticopter* motors);
     bool data_is_ok();
     void get_KF_pos(position_t p);  // get kalman filter output;
+    void get_error_terms(pos_error_t err);
     void get_target_things(float thrust, float roll, float pitch, float yaw);
     void write_log();
 

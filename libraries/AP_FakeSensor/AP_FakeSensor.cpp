@@ -57,10 +57,13 @@ void AP_FakeSensor::update()
     //     _uart->printf("%lu %f %f %f %f %f %f\n", 
     //             data.ts, data.roll, data.pitch, data.yaw, data.mthrust_out[0], data.mthrust_out[1], data.mthrust_out[2]);
     // }
-    if (counter > 20) {
+    if (counter > 7) {
         counter = 0;
-        _uart->printf("%lu %f %f %f %f %f %f %f %f %f %f\n", 
-                data.ts, data.KF_pos.y, data.KF_pos.z, data.mthrust_out[0], data.roll, data.pitch, data.yaw, data.target_thrust, data.target_roll, data.target_pitch, data.target_yaw_rate);
+        _uart->printf("%lu %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", 
+                data.ts, data.KF_pos.y, data.KF_pos.z, data.mthrust_out[0], data.roll, data.pitch, data.yaw, 
+                data.target_thrust, data.target_roll, data.target_pitch, data.target_yaw_rate, 
+                data.perr.pterm_y, data.perr.iterm_y, data.perr.dterm_y,
+                data.perr.pterm_z, data.perr.iterm_z, data.perr.dterm_z);
     }
 }
 
@@ -141,6 +144,22 @@ void AP_FakeSensor::_get_pos()
 void AP_FakeSensor::get_KF_pos(position_t p)
 {
     data.KF_pos = p;
+}
+
+void AP_FakeSensor::get_error_terms(pos_error_t errs)
+{
+    data.perr.pterm_z = errs.pterm_z;
+    data.perr.iterm_z = errs.iterm_z;
+    data.perr.dterm_z = errs.dterm_z;
+    data.perr.pterm_y = errs.pterm_y;
+    data.perr.iterm_y = errs.iterm_y;
+    data.perr.dterm_y = errs.dterm_y;
+    // static uint8_t counter = 0;
+    // counter++;
+    // if (counter >5) {
+    //     counter = 0;
+    //     hal.uartE->printf("$ Yar %f \n", errs.dterm_z);
+    // }
 }
 
 void AP_FakeSensor::get_target_things(float thrust, float roll, float pitch, float yaw_rate)

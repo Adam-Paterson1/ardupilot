@@ -96,6 +96,7 @@ float AC_Backstepping::_throttle_transition(float BS_thr_out)
         flags.thrust_transition_completed = true;
         thr_out = BS_thr_out;
     }
+    thr_out = _limit_thrust(thr_out);
     return thr_out;
 }
 
@@ -133,8 +134,8 @@ void AC_Backstepping::reset_integral()
 
 float AC_Backstepping::_limit_thrust(float thr)
 {
-    if (thr > 1)        return 1.0f;
-    else if (thr < 0)   return 0;
+    if (thr > 0.45f)        return 0.45f;
+    else if (thr < 0.05f)   return 0.05f;
     else                return thr;
 }
 
@@ -156,58 +157,61 @@ float AC_Backstepping::update_PID_lateral_controller(float roll_max)
     // position error in mm as centidegrees are very small
     float ey = (_pos_target_y - _pos.y);
 
+    // i term, restrict integral windup
+    if (_pid.iy > 0) {
+        _pid_iey += ey * _dt;
+        _pid_iey = _limit_value(_pid_iey, PID_IYTERM_MAX / _pid.iy);
+    }
+
+    perr.pterm_y = _pid.py * ey;
+    perr.iterm_y = _pid.iy * _pid_iey;
     // d term is error getting better or worse
-    float dey = (ey - _prev_ey) / _dt;
+    perr.dterm_y = _limit_value(_pid.dy * (ey - _prev_ey), PID_DYTERM_MAX);
 
-    _prev_ey = ey;
+    _prev_ey = _prev_ey + (ey - _prev_eys[index_y]) / 90;
+    _prev_eys[index_y] = ey;
+    index_y = (index_y + 1) % 90;
 
-    // i term
-    _pid_iey += ey * _dt;
-
-    // update d term
-    float dterm_y = dey*_pid.dy;
-
-    // restrict derivative to be hover throttle at max
-    dterm_y = _limit_value(dterm_y, PID_DYTERM_MAX);
-
-    // restrict integral
-    float iterm_y = _limit_value(_pid.iy*_pid_iey, PID_IYTERM_MAX);
-
-    _target_roll = _pid.py * ey + iterm_y + dterm_y;
-
-    // limit roll output
-    if (_target_roll > roll_max)          _target_roll = roll_max;
-    else if (_target_roll < -roll_max)    _target_roll = -roll_max;
+    _target_roll = _limit_value(perr.pterm_y + perr.iterm_y + perr.dterm_y, roll_max);
 
     // check for manual override
     if (!flags.angle_transition_completed)   _target_roll = _angle_transition(_target_roll);
     return _target_roll;
 }
+    /*
+    Above
+     -10 -> -5 => 5
+     -5 -> -10 => -5
+    Below
+     10 -> 5 => -5
+     5 -> 10 => 5
+    */
 float AC_Backstepping::update_PID_vertical_controller()
 {
     // position error in m
     float ez = (_pos_target_z - _pos.z) / 1000.0f;
 
-    // d term is error getting better or worse
-    float dez = (ez - _prev_ez) / _dt;
-
-    _prev_ez = ez;
-
-    // i term
-    _pid_iez += ez * _dt;
+    // i term, restrict integral
+    if (_pid.iz > 0) {
+        _pid_iez += ez * _dt;
+        _pid_iez = _limit_value(_pid_iez, PID_IZTERM_MAX / _pid.iz);
+    }
     
-    // update d term
-    float dterm_z = dez*_pid.dy;
-
-    // restrict derivative to be hover throttle at max
-    dterm_z = _limit_value(dterm_z, PID_DZTERM_MAX);
-
-    // restrict integral
-    float iterm_z = _limit_value(_pid.iz*_pid_iez, PID_IZTERM_MAX);
-
-    _thr_out= _pid.pz * ez + iterm_z + dterm_z;
-
-    _thr_out = _limit_thrust(_thr_out);
+    perr.pterm_z = _pid.pz * ez;
+    perr.iterm_z = _pid.iz*_pid_iez;
+    // d term is error getting better or worse
+    perr.dterm_z = _limit_value(_pid.dz * (ez - _prev_ez), PID_DZTERM_MAX);
+    // Low pass prev_ez
+    _prev_ez = _prev_ez + (ez - _prev_ezs[index_z]) / 90;
+    _prev_ezs[index_z] = ez;
+    index_z = (index_z + 1) % 90;
+    // static uint8_t counter = 0;
+    // counter++;
+    // if (counter >5) {
+    //     counter = 0;
+    //     hal.uartE->printf("$ Pos up %f %f %f %f\n", _pid.dz, ez, _prev_ez, perr.dterm_z);
+    // }
+    _thr_out = _limit_thrust(THROTTLE_HOVER_FOR_US + perr.pterm_z + perr.iterm_z + perr.dterm_z);
 
     // mode transition throttle ramping, 0.5s
     if (!flags.thrust_transition_completed)   _thr_out = _throttle_transition(_thr_out);

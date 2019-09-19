@@ -11,7 +11,7 @@
 #include <AP_FakeSensor/AP_FakeSensor.h>
 
 #define POS_FILTER_CUTOFF_FREQ  2.0f
-#define R                       0.0025f     // measurement noise cov
+#define R                       0.00005f     // measurement noise cov
 #define Q                       0.0225f     // process noise cov
 #define G_KF                    9.81f       // gravity for kalman filter
 #define alpha                   0.8         // exp moving average for IMU bias, % of new value

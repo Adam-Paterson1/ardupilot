@@ -85,6 +85,7 @@ void AC_PosKalmanFilter::run()
     _pos.vz = _Xe[3];
 
     _prev_data_set = _fs.data.pos.nset;
+    _pos.yaw = _fs.data.pos.yaw;
 
     _t0 = AP_HAL::micros64();
 

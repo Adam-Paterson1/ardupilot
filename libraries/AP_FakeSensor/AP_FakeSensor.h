@@ -14,7 +14,7 @@
 
 #define ODROID_BAUDRATE 115200
 #define N_MSG_VARIABLE  5
-#define DATA_BUF_SIZE 50 // 4 int variables
+#define DATA_BUF_SIZE 140 // 4 int variables
 #define FAR_THRESHOLD 2000 // mm
 
 using namespace std;
@@ -63,6 +63,8 @@ struct pos_error_t
     float pterm_z;
     float dterm_z;
     float iterm_z;
+    float pterm_yaw;
+    float dterm_yaw;
 };
 struct gains_t
 {
@@ -72,6 +74,8 @@ struct gains_t
     float pz;
     float iz;
     float dz;
+    float pyaw;
+    float dyaw;
 };
 
 
@@ -84,7 +88,7 @@ struct position_t
     float ay;       // m/s^2
     float az;       // m/s^2
     int nset = 0;
-
+    float yaw;
     // controller stuff
     float vel_y_err = 0;
     float vel_z_err = 0;

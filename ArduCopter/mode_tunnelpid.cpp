@@ -78,6 +78,7 @@ void Copter::ModeTunnelPID::run()
     // Calculate outputs
     target_roll = backstepping->update_PID_lateral_controller(copter.aparm.angle_max);
     target_thrust = backstepping->update_PID_vertical_controller();
+    target_yaw_rate = backstepping->update_PID_yaw_controller();
     pos_sensor.get_error_terms(backstepping->perr);
     // OVERRIDES ----------------------------------------------------------------
     // If pilot wiggling thrust or roll, let them take over for 1.5 seconds
@@ -130,7 +131,9 @@ void Copter::ModeTunnelPID::run()
 
     //Pass through pilot control
     prev_pilot_thrust = pilot_thrust;
-    target_yaw_rate = pilot_yaw_rate;
+    if ((pilot_yaw_rate > 200) || (pilot_yaw_rate < -200)) {
+        target_yaw_rate = pilot_yaw_rate;
+    }
     target_pitch = pilot_pitch;
     // OUTPUT ----------------------------------------------------------------
     // call attitude controller

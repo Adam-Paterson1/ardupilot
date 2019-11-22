@@ -25,11 +25,11 @@
 #define MANUAL_OVERRIDE_TIME                1.5f    // second
 #define THROTTLE_HOVER_FOR_US               0.2025f
 // defines for PID controller
-#define PID_DYTERM_MAX                       2000    // 2 degree
-#define PID_IYTERM_MAX                       1000    // 10 degree
-#define PID_DZTERM_MAX                       0.07    // 20% throttle
-#define PID_IZTERM_MAX                       0.065    // 10% throttle
-
+#define PID_DYTERM_MAX                      2000    // 2 degree
+#define PID_IYTERM_MAX                      1000    // 10 degree
+#define PID_DZTERM_MAX                      0.07    // 20% throttle
+#define PID_IZTERM_MAX                      0.065    // 10% throttle
+#define PID_DYAWTERM_MAX                    2000 
 class AC_Backstepping
 {
 public:
@@ -62,6 +62,7 @@ public:
     // PID lateral controller
     float update_PID_lateral_controller(float angle_max);
     float update_PID_vertical_controller();
+    float update_PID_yaw_controller();
     float get_PID_alt_climb_rate();    // cm/s
     void set_PID_gains(gains_t gains);
     void reset_PID_integral();
@@ -87,11 +88,17 @@ private:
     position_t _pos;
     float _dt;
     float _prev_ey;
-    float _prev_eys[90] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    int num_prev_eys = 100;
+    float _prev_eys[100] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     int   index_y = 0;
     float _prev_ez;
-    float _prev_ezs[90] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    int num_prev_ezs = 100;
+    float _prev_ezs[100] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     int   index_z = 0;
+    float _prev_e_yaw;
+    int num_prev_e_yaws = 100;
+    float _prev_e_yaws[100] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    int   index_yaw = 0;
     float _pos_target_z;
     float _pos_target_y;
     int   _prev_nset;
@@ -102,8 +109,10 @@ private:
     float _thrust_transition_counter;
     float _thr_out;    // thrust output for motor, range from 0-1
     float _target_roll;     // desired roll to the attitude controller
+    float _target_yaw;
     float _pilot_roll;      // pilot roll input
     float _roll_max;        // max roll angle
+    float _yaw_max = 4000.0f;
 
     float _angle_transition(float target_roll);
     float _throttle_transition(float BS_thr_out);
@@ -121,6 +130,8 @@ private:
         float pz;
         float iz;
         float dz;
+        float pyaw;
+        float dyaw;
     }_pid;
 
     float _pid_iey;

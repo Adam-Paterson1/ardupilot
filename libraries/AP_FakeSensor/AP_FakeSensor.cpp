@@ -102,7 +102,7 @@ void AP_FakeSensor::_get_pos()
                 _linebuf[i] = '\0';
                 int j = 0;
                 char delim[] = ",";
-                float buff[10];
+                float buff[20]; // Larger than necessary for a bit of safety in comms failures
                 char *ptr = strtok(_linebuf, delim);
                 while(ptr != NULL)
                 {
@@ -119,14 +119,19 @@ void AP_FakeSensor::_get_pos()
                 // Update position
                 data.pos.y = buff[0];
                 data.pos.z = buff[1];
-                data.target_pos.y = buff[2];
-                data.target_pos.z = buff[3];
-                data.gains.py = buff[4];
-                data.gains.iy = buff[5];
-                data.gains.dy = buff[6];
-                data.gains.pz = buff[7];
-                data.gains.iz = buff[8];
-                data.gains.dz = buff[9];
+                //width data.target_pos.y = buff[2];
+                // height data.target_pos.z = buff[3];
+                data.pos.yaw = buff[4];
+                data.target_pos.y = buff[5];
+                data.target_pos.z = buff[6];
+                data.gains.py = buff[7];
+                data.gains.iy = buff[8];
+                data.gains.dy = buff[9];
+                data.gains.pz = buff[10];
+                data.gains.iz = buff[11];
+                data.gains.dz = buff[12];
+                data.gains.pyaw = buff[13];
+                data.gains.dyaw = buff[14];
                 data.pos.nset = _prev_pos.nset + 1;
                 // Reset line buffer
                 for (i = 0; i <DATA_BUF_SIZE; i++) {

@@ -104,6 +104,7 @@ void AC_Backstepping::pos_update(position_t pos)
 {
     _pos.y  = pos.y;
     _pos.z  = pos.z;
+    _pos.yaw = pos.yaw;
     // static uint8_t counter = 0;
     // counter++;
     // if (counter > 20) {
@@ -168,9 +169,9 @@ float AC_Backstepping::update_PID_lateral_controller(float roll_max)
     // d term is error getting better or worse
     perr.dterm_y = _limit_value(_pid.dy * (ey - _prev_ey), PID_DYTERM_MAX);
 
-    _prev_ey = _prev_ey + (ey - _prev_eys[index_y]) / 90;
+    _prev_ey = _prev_ey + (ey - _prev_eys[index_y]) / num_prev_eys;
     _prev_eys[index_y] = ey;
-    index_y = (index_y + 1) % 90;
+    index_y = (index_y + 1) % num_prev_eys;
 
     _target_roll = _limit_value(perr.pterm_y + perr.iterm_y + perr.dterm_y, roll_max);
 
@@ -202,9 +203,9 @@ float AC_Backstepping::update_PID_vertical_controller()
     // d term is error getting better or worse
     perr.dterm_z = _limit_value(_pid.dz * (ez - _prev_ez), PID_DZTERM_MAX);
     // Low pass prev_ez
-    _prev_ez = _prev_ez + (ez - _prev_ezs[index_z]) / 90;
+    _prev_ez = _prev_ez + (ez - _prev_ezs[index_z]) / num_prev_ezs;
     _prev_ezs[index_z] = ez;
-    index_z = (index_z + 1) % 90;
+    index_z = (index_z + 1) % num_prev_ezs;
     // static uint8_t counter = 0;
     // counter++;
     // if (counter >5) {
@@ -216,6 +217,23 @@ float AC_Backstepping::update_PID_vertical_controller()
     // mode transition throttle ramping, 0.5s
     if (!flags.thrust_transition_completed)   _thr_out = _throttle_transition(_thr_out);
     return _thr_out;
+}
+
+float AC_Backstepping::update_PID_yaw_controller()
+{
+    // yaw error
+    float e_yaw = _pos.yaw;
+    
+    perr.pterm_yaw = _pid.pyaw * e_yaw;
+    // d term is error getting better or worse
+    perr.dterm_yaw = _limit_value(_pid.dyaw * (e_yaw - _prev_e_yaw), PID_DYAWTERM_MAX);
+    // Low pass prev_ez
+    _prev_e_yaw = _prev_e_yaw + (e_yaw - _prev_e_yaws[index_yaw]) / num_prev_e_yaws;
+    _prev_e_yaws[index_yaw] = e_yaw;
+    index_yaw = (index_yaw + 1) % num_prev_e_yaws;
+
+    _target_yaw = _limit_value(perr.pterm_yaw + perr.dterm_yaw, _yaw_max);
+    return _target_yaw;
 }
 
 void AC_Backstepping::reset_PID_integral()
@@ -232,6 +250,8 @@ void AC_Backstepping::set_PID_gains(gains_t gains)
     _pid.pz = gains.pz;
     _pid.iz = gains.iz;
     _pid.dz = gains.dz;
+    _pid.pyaw = gains.pyaw;
+    _pid.dyaw = gains.dyaw;
     // static uint8_t counter = 0;
     // counter++;
     // if (counter > 20) {

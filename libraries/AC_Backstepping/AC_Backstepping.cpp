@@ -194,7 +194,7 @@ float AC_Backstepping::update_PID_vertical_controller()
 
     // i term, restrict integral
     if (_pid.iz > 0) {
-        _pid_iez += ez * _dt;
+        _pid_iez += _limit_value(ez * _dt, 0.0012f); // Roughly half a metre
         _pid_iez = _limit_value(_pid_iez, PID_IZTERM_MAX / _pid.iz);
     }
     

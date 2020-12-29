@@ -14,7 +14,7 @@
 
 #define ODROID_BAUDRATE 115200
 #define N_MSG_VARIABLE  5
-#define DATA_BUF_SIZE 140 // 4 int variables
+#define DATA_BUF_SIZE 150 // 4 int variables
 #define FAR_THRESHOLD 2000 // mm
 
 using namespace std;

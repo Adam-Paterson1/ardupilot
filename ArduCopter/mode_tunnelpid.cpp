@@ -113,10 +113,10 @@ void Copter::ModeTunnelPID::run()
     }
 
     if (thrust_override == true) {
-        target_thrust = transitionCoefficient(1, 0.25, thrust_transition_counter, thrust_transition_range)*target_thrust + transitionCoefficient(0, 0.75, thrust_transition_counter, thrust_transition_range)*pilot_thrust;
+        target_thrust = transitionCoefficient(1, 0.3, thrust_transition_counter, thrust_transition_range)*target_thrust + transitionCoefficient(0, 0.7, thrust_transition_counter, thrust_transition_range)*pilot_thrust;
         thrust_override_timer--;
     } else {
-        target_thrust = transitionCoefficient(0.25, 1, thrust_transition_counter, thrust_transition_range)*target_thrust + transitionCoefficient(0.75, 0, thrust_transition_counter, thrust_transition_range)*pilot_thrust;
+        target_thrust = transitionCoefficient(0.3, 1, thrust_transition_counter, thrust_transition_range)*target_thrust + transitionCoefficient(0.7, 0, thrust_transition_counter, thrust_transition_range)*pilot_thrust;
     }
 
     // Decrement counters and update whether pilot took control this cycle
@@ -134,6 +134,7 @@ void Copter::ModeTunnelPID::run()
     if ((pilot_yaw_rate > 200) || (pilot_yaw_rate < -200)) {
         target_yaw_rate = pilot_yaw_rate;
     }
+    // target_yaw_rate = pilot_yaw_rate;
     target_pitch = pilot_pitch;
     // OUTPUT ----------------------------------------------------------------
     // call attitude controller
